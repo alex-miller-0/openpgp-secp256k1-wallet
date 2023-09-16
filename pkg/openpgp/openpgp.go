@@ -9,11 +9,6 @@ import (
 	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/utils"
 )
 
-type (
-	UifOption byte
-	KeyType   byte
-)
-
 const (
 	// ISO7816 constants
 	// https://docs.oracle.com/javacard/3.0.5/api/javacard/framework/
@@ -69,11 +64,13 @@ func GetPub(userPin string) ([]byte, error) {
 	data, err := exportPub()
 	if err != nil {
 		return nil, err
+	} else if len(data) == 0 {
+		return nil, fmt.Errorf("no key found on device")
 	}
 	return parsePubkey(data)
 }
 
-func GenerateSecp256k1(adminPin, userPin string) ([]byte, error) {
+func GenerateSecp256k1(adminPin, userPin string, force bool) ([]byte, error) {
 	err := unlock(adminPin, true)
 	if err != nil {
 		return nil, err
@@ -87,7 +84,7 @@ func GenerateSecp256k1(adminPin, userPin string) ([]byte, error) {
 		return nil, fmt.Errorf("error updating algorithm on card %w", err)
 	}
 	// Check if the card already has a key loaded and exit if so
-	if keyOnCard() {
+	if keyOnCard() && !force {
 		return nil, fmt.Errorf("key already exists on card. Please reset it")
 	}
 	// Generate key
@@ -108,7 +105,7 @@ func GenerateSecp256k1(adminPin, userPin string) ([]byte, error) {
 		// but if you keep generating it will eventually make the right key.
 		// I cannot find this documented anywhere but running a test many times
 		// should prove that this is fine.
-		return GenerateSecp256k1(adminPin, userPin)
+		return GenerateSecp256k1(adminPin, userPin, true)
 	}
 	// Annoyingly, we also need to unlock Pw1 to sign
 	err = unlock(userPin, false)
@@ -144,7 +141,10 @@ func keyOnCard() bool {
 
 func exportPub() ([]byte, error) {
 	resp, err := sendAPDU(InsAsymmetricKeyPair, ExportPubP1, 0x00, SigSelector)
-	if err != nil {
+	if err != nil && strings.Contains(err.Error(), "65 81") {
+		// This is a known error that happens when there is no key on the card
+		return nil, fmt.Errorf("no key found on device")
+	} else if err != nil {
 		return nil, err
 	}
 	return resp, nil

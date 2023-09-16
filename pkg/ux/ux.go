@@ -22,6 +22,7 @@ func PromptForSecret(prompt string, secret *string) {
 		Errorln("Error reading password")
 		os.Exit(1)
 	}
+	fmt.Println()
 	*secret = string(out)
 }
 

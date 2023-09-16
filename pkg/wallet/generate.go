@@ -16,6 +16,7 @@ const (
 type Generate struct {
 	UserPin  string
 	AdminPin string
+	Force    bool
 }
 
 func (*Generate) Name() string { return "generate" }
@@ -42,6 +43,12 @@ func (g *Generate) SetFlags(flagSet *flag.FlagSet) {
 		"",
 		"Admin PIN (or passphrase) of the security key device",
 	)
+	flagSet.BoolVar(
+		&g.Force,
+		"force",
+		false,
+		"Force generation of a new keypair, even if one already exists",
+	)
 }
 
 func (g *Generate) Execute(
@@ -55,11 +62,11 @@ func (g *Generate) Execute(
 	if g.AdminPin == "" {
 		ux.PromptForSecret("Enter admin PIN: ", &g.AdminPin)
 	}
-	pub, err := openpgp.GenerateSecp256k1(g.AdminPin, g.UserPin)
+	pub, err := openpgp.GenerateSecp256k1(g.AdminPin, g.UserPin, g.Force)
 	if err != nil {
 		ux.Errorf("Error generating secp256k1 key: %s", err.Error())
 		return subcommands.ExitFailure
 	}
-	ux.Passf("Generated secp256k1 key (%d):\n% x\n", len(pub), pub)
+	ux.Passf("Generated secp256k1 key (%d):\n% x", len(pub), pub)
 	return subcommands.ExitSuccess
 }

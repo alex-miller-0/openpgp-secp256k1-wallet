@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/openpgp"
+	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/api"
 	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/ux"
 	"github.com/google/subcommands"
 )
@@ -48,9 +48,9 @@ func (p *PubKey) Execute(
 	if p.UserPin == "" {
 		ux.PromptForSecret("Enter user PIN: ", &p.UserPin)
 	}
-	pub, err := openpgp.GetPub(p.UserPin)
+	pub, err := api.GetPub(p.UserPin)
 	if err != nil {
-		ux.Errorf("Error getting public key: %s", err.Error())
+		ux.Errorf(err.Error())
 		return subcommands.ExitFailure
 	}
 	ux.Passln(fmt.Sprintf("Public key: %s", hex.EncodeToString(pub)))

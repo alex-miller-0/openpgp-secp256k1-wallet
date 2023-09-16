@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 
-	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/openpgp"
+	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/api"
 	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/utils"
 	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/ux"
 	"github.com/google/subcommands"
@@ -18,6 +18,7 @@ const (
 type Sign struct {
 	UserPin  string
 	AdminPin string
+	Hash     string
 }
 
 func (*Sign) Name() string { return "sign" }
@@ -27,7 +28,7 @@ func (*Sign) Synopsis() string {
 }
 
 func (*Sign) Usage() string {
-	return "sign [--user-pin <user pin>] <data>\n\n" +
+	return "sign [--user-pin <user_pin> --hash <hash>] <data>\n\n" +
 		"If PIN is not provided, you will be prompted to enter it.\n"
 }
 
@@ -37,6 +38,12 @@ func (s *Sign) SetFlags(flagSet *flag.FlagSet) {
 		"user-pin",
 		"",
 		"PIN (or passphrase) of the security key device",
+	)
+	flagSet.StringVar(
+		&s.Hash,
+		"hash",
+		"sha256",
+		"Hash type to use (sha256 | keccak256 | none)",
 	)
 }
 
@@ -54,21 +61,25 @@ func (s *Sign) Execute(
 	}
 	msg, err := hex.DecodeString(data)
 	if err != nil {
-		ux.Errorln("Data must be hex encoded")
-		return subcommands.ExitFailure
+		if s.Hash == utils.HashTypePrehashed {
+			ux.Errorln(
+				"Could not parse input. Please provide a hex string.",
+			)
+			return subcommands.ExitFailure
+		}
+		for _, c := range data {
+			if c > 127 {
+				ux.Errorln(
+					"Could not parse input. Please provide an ASCII or hex string.",
+				)
+				return subcommands.ExitFailure
+			}
+		}
+		msg = []byte(data)
 	}
-	hash := utils.Keccak256(msg)
-	sig, err := openpgp.SignECDSA(s.UserPin, hash)
+	sig, err := api.Sign(msg, s.UserPin, s.Hash)
 	if err != nil {
-		ux.Errorf("Error signing data: %s", err.Error())
-		return subcommands.ExitFailure
-	}
-	pub, err := openpgp.GetPub(s.UserPin)
-	if err != nil {
-		ux.Errorf("Error getting public key from OpenPGP: %s", err.Error())
-		return subcommands.ExitFailure
-	}
-	if !utils.ValidateSig(hash, sig, pub) {
+		ux.Errorln(err.Error())
 		return subcommands.ExitFailure
 	}
 	ux.Passln(hex.EncodeToString(sig))
