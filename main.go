@@ -5,7 +5,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/alex-miller-0/openpgp-secp256k1-wallet/pkg/wallet"
+	"github.com/alex-miller-0/openpgp-secp256k1-wallet/internal/wallet"
 	"github.com/google/subcommands"
 )
 
